@@ -4,7 +4,7 @@ PYTHON ?= python3
 all: genpack-init.bin coldplug.bin
 
 genpack-init.bin: genpack-init.cpp coldplug.cpp
-	g++ -o $@ $^ $(CXXFLAGS) `$(PYTHON) -m pybind11 --includes` `$(PYTHON)-config --embed --libs`
+	g++ -o $@ $^ $(CXXFLAGS) `$(PYTHON) -m pybind11 --includes` `$(PYTHON)-config --embed --libs` -static-libgcc -static-libstdc++
 
 coldplug.bin: coldplug.cpp
 	g++ -o $@ $^ $(CXXFLAGS) -DTEST_COLDPLUG `$(PYTHON) -m pybind11 --includes` `$(PYTHON)-config --embed --libs`
