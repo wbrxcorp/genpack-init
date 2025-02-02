@@ -12,6 +12,6 @@ coldplug.bin: coldplug.cpp
 clean:
 	rm -f *.bin
 
-install: genpack-init
+install: genpack-init.bin
 	install -d $(DESTDIR)$(PREFIX)/bin
 	install -m 755 genpack-init.bin $(DESTDIR)$(PREFIX)/bin/genpack-init
