@@ -1,4 +1,5 @@
 #include <string>
+#include <optional>
 
 bool is_raspberry_pi();
 bool is_qemu();

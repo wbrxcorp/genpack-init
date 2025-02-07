@@ -8,6 +8,7 @@
 #include "native/filesystem.h"
 #include "native/platform.h"
 #include "native/systemd.h"
+#include "native/formatter.h"
 
 #include "repl.h"
 
@@ -28,7 +29,7 @@ public:
         return path.string();
     }
     std::string __repr__() const {
-        return std::format("PathLike({})", path.string());
+        return std::format("PathLike({})", path);
     }
     PathLike<F>* ensure_dir_exists() {
         ::ensure_dir_exists(path);

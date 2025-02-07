@@ -4,6 +4,7 @@
 #include "platform.h"
 #include "filesystem.h"
 #include "logging.h"
+#include "formatter.h"
 
 bool is_raspberry_pi() {
     std::filesystem::path sys_model("/sys/firmware/devicetree/base/model");
@@ -14,7 +15,7 @@ bool is_raspberry_pi() {
         logging::debug(std::format("Model: '{}'", model));
         return model.starts_with("Raspberry Pi");
     } else {
-        logging::debug(std::format("{} not found.", sys_model.string()));
+        logging::debug(std::format("{} not found.", sys_model));
     }
     return false;
 }
@@ -28,7 +29,7 @@ bool is_qemu() {
         logging::debug(std::format("Vendor: '{}'", vendor));
         return vendor == "QEMU";
     } else {
-        logging::debug(std::format("{} not found.", sys_vendor.string()));
+        logging::debug(std::format("{} not found.", sys_vendor));
     }
     return false;
 }
@@ -37,7 +38,7 @@ std::optional<std::string> read_qemu_firmware_config(const std::filesystem::path
 {
     auto path = root_path({"/sys/firmware/qemu_fw_cfg/by_name", name, "raw"});
     if (!std::filesystem::exists(path)) {
-        logging::debug(std::format("{} not found.", path.string()));
+        logging::debug(std::format("{} not found.", path));
         return std::nullopt;
     }
     //else
