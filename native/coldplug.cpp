@@ -4,10 +4,9 @@
 #include <iostream>
 #include <fstream>
 #include <filesystem>
+#include <vector>
 
-#include <pybind11/embed.h>
-
-using namespace pybind11::literals;
+#include "logging.h"
 
 static const char* modprobe = "/sbin/modprobe";
 
@@ -98,12 +97,8 @@ static int load_modules(const std::set<std::string>& modules)
 
 void coldplug()
 {
-    auto logging = pybind11::module::import("logging");
-    auto logging_info = logging.attr("info");
-    auto logging_warning = logging.attr("warning");
-    auto logging_error = logging.attr("error");
     if (coldplug_done) {
-        logging_info("coldplug() already called.");
+        logging::info("coldplug() already called.");
         return;
     }
     //else
@@ -131,41 +126,19 @@ void coldplug()
             msg += module;
             first = false;
         }
-        logging_info(msg);
+        logging::info(msg);
 
         auto rst = load_modules(modules);
         if (rst == 0) {
-            logging_info("Modules loaded.");
+            logging::info("Modules loaded.");
         } else {
-            logging_warning("modpeobe returned non-zero exit status: " + std::to_string(rst));
+            logging::warning("modpeobe returned non-zero exit status: " + std::to_string(rst));
         }
 
         coldplug_done = true;
-        logging_info("coldplug done.");
+        logging::info("coldplug done.");
     }
     catch (const std::exception& e) {
-        logging_error("coldplug failed: " + std::string(e.what()));
+        logging::error("coldplug failed: " + std::string(e.what()));
     }
 }
-
-void coldplug_mock()
-{
-    if (coldplug_done) {
-        std::cout << "coldplug() already called." << std::endl;
-        return;
-    }
-    coldplug_done = true;
-    std::cout << "coldplug() called." << std::endl;
-}
-
-#ifdef TEST_COLDPLUG
-int main()
-{
-    pybind11::scoped_interpreter guard{};
-    auto logging = pybind11::module::import("logging");
-    logging.attr("basicConfig")("level"_a = logging.attr("DEBUG"));
-    coldplug();
-    coldplug();
-    return 0;
-}
-#endif

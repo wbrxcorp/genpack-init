@@ -1,2 +1,6 @@
+.vscode/
+genpack-init
+debug/
+*.pyc
+*.o
 *.bin
-*.log
