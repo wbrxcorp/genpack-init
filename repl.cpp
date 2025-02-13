@@ -5,7 +5,7 @@ int repl()
     pybind11::exec(R"(
 import code,readline,rlcompleter
 from genpack_init import get_block_device_info, get_partition_info, parted, mkfs, mkswap
-from genpack_init import BootPath, RootPath, ROPath, RWPath, ensure_dir_exists, chown, chmod
+from genpack_init import boot_path, root_path, ro_path, rw_path, chown, chmod
 from genpack_init import is_raspberry_pi, is_qemu, read_qemu_firmware_config
 from genpack_init import enable_systemd_service, disable_systemd_service
 history_file = os.path.expanduser("~/.genpack_init_history")

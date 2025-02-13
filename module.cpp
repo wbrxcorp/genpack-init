@@ -1,3 +1,5 @@
+#include <regex>
+
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl/filesystem.h>
@@ -14,28 +16,21 @@
 
 using namespace pybind11::literals;
 
-template <auto F>
-class PathLike {
-    std::filesystem::path path;
-public:
-    PathLike(pybind11::args args) {
-        std::vector<std::filesystem::path> paths;
-        for (const auto& arg: args) {
-            paths.push_back(arg.cast<std::filesystem::path>());
+static auto create_posix_path(const std::filesystem::path& root, const pybind11::args& args)
+{
+    pybind11::list newargs;
+    newargs.append(root);
+    int index = 0;
+    for (const auto& arg: args) {
+        if (index == 0) {
+            newargs.append(std::regex_replace(arg.cast<std::string>(), std::regex("^/+"), ""));
+        } else {
+            newargs.append(arg);
         }
-        path = F({paths.begin(), paths.end()});
+        index++;
     }
-    std::string __fspath__() const {
-        return path.string();
-    }
-    std::string __repr__() const {
-        return std::format("PathLike({})", path);
-    }
-    PathLike<F>* ensure_dir_exists() {
-        ::ensure_dir_exists(path);
-        return this;
-    }
-};
+    return pybind11::module_::import("pathlib").attr("PosixPath")(*newargs);
+}
 
 void setup_genpack_init_module()
 {
@@ -91,9 +86,6 @@ void setup_genpack_init_module()
     dynamic_mod.def("disable_systemd_service", disable_systemd_service, "name"_a);
 
     // filesystem functions
-    dynamic_mod.def("ensure_dir_exists", [](const std::string& path) {
-        ensure_dir_exists(path);
-    });
     dynamic_mod.def("chown", [](const std::string& user, pybind11::args paths, const std::optional<std::string>& group, bool recursive) {
         std::vector<std::filesystem::path> paths_;
         for (const auto& path: paths) {
@@ -119,39 +111,22 @@ void setup_genpack_init_module()
     }, "mode"_a, pybind11::kw_only(), "recursive"_a = false);
 
     auto os = pybind11::module_::import("os");
-    auto PathLike_register = os.attr("PathLike").attr("register");
 
-    PathLike_register(
-        pybind11::class_<PathLike<root_path>>(dynamic_mod, "RootPath")
-            .def(pybind11::init<pybind11::args>())
-            .def("__repr__", &PathLike<root_path>::__repr__)
-            .def("__fspath__", &PathLike<root_path>::__fspath__)
-            .def("ensure_dir_exists", &PathLike<root_path>::ensure_dir_exists)
-    );
+    dynamic_mod.def("root_path", [](pybind11::args args) {
+        return create_posix_path("/", args);
+    });
 
-    PathLike_register(
-        pybind11::class_<PathLike<boot_path>>(dynamic_mod, "BootPath")
-            .def(pybind11::init<pybind11::args>())
-            .def("__repr__", &PathLike<boot_path>::__repr__)
-            .def("__fspath__", &PathLike<boot_path>::__fspath__)
-            .def("ensure_dir_exists", &PathLike<boot_path>::ensure_dir_exists)
-    );
+    dynamic_mod.def("boot_path", [](pybind11::args args) {
+        return create_posix_path("/run/initramfs/boot", args);
+    });
 
-    PathLike_register(
-        pybind11::class_<PathLike<ro_path>>(dynamic_mod, "ROPath")
-            .def(pybind11::init<pybind11::args>())
-            .def("__repr__", &PathLike<ro_path>::__repr__)
-            .def("__fspath__", &PathLike<ro_path>::__fspath__)
-            // ensure_dir_exists is not applicable to ROPath
-    );
+    dynamic_mod.def("ro_path", [](pybind11::args args) {
+        return create_posix_path("/run/initramfs/ro", args);
+    });
 
-    PathLike_register(
-        pybind11::class_<PathLike<rw_path>>(dynamic_mod, "RWPath")
-            .def(pybind11::init<pybind11::args>())
-            .def("__repr__", &PathLike<rw_path>::__repr__)
-            .def("__fspath__", &PathLike<rw_path>::__fspath__)
-            .def("ensure_dir_exists", &PathLike<rw_path>::ensure_dir_exists)
-    );
+    dynamic_mod.def("rw_path", [](pybind11::args args) {
+        return create_posix_path("/run/initramfs/rw", args);
+    });    
 }
 
 #ifdef TEST

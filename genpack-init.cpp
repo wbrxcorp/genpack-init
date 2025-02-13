@@ -107,12 +107,18 @@ int run_as_init()
     return 0;
 }
 
-int run(const std::filesystem::path& script_file, const std::filesystem::path& inifile, bool mock)
+#if 0
+int run(const std::filesystem::path& script_file, 
+    const std::filesystem::path& inifile)
 {
     // disable writing of .pyc files
     pybind11::module_::import("sys").attr("dont_write_bytecode") = true;
 
-    if (!mock) setup_genpack_init_module();
+    // setup logging
+    auto logging = pybind11::module_::import("logging");
+    logging.attr("basicConfig")(pybind11::arg("level") = "DEBUG");
+    
+    setup_genpack_init_module(root_path, boot_path, ro_path, rw_path);
 
     auto machinery = pybind11::module::import("importlib.machinery");
     auto signature = pybind11::module::import("inspect").attr("signature");
@@ -134,6 +140,7 @@ int run(const std::filesystem::path& script_file, const std::filesystem::path& i
     }
     return 0;
 }
+#endif
 
 int main(int argc, char* argv[])
 {
@@ -157,42 +164,13 @@ int main(int argc, char* argv[])
         reboot(RB_HALT_SYSTEM);
     }
     // else 
-    argparse::ArgumentParser parser("genpack-init");
-    parser.add_argument("--mock").help("Mock genpack_init functions").default_value(false).implicit_value(true);
-    parser.add_argument("--inifile").help("Path to ini file").default_value("system.ini");
-    parser.add_argument("--python-path", "-p").help("Additional python path").nargs(argparse::nargs_pattern::any);
-    parser.add_argument("script_file").help("Python script to run configure function").nargs(argparse::nargs_pattern::optional);
-    
-    try {
-        parser.parse_args(argc, argv);
-    }
-    catch (const std::runtime_error& e) {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    }
-
-    bool mock = parser.get<bool>("--mock");
-    auto script_file = parser.present<std::string>("script_file");
-    auto python_path = parser.get<std::vector<std::string>>("--python-path");
-
     pybind11::scoped_interpreter guard{};
 
-    for (const auto& path: python_path) {
-        pybind11::module_::import("sys").attr("path").attr("insert")(0, path);
-    }
-
     try {
-        if (script_file) {
-            return run(*script_file, parser.get<std::string>("--inifile"), mock);
-        } else {
-            if (!mock) {
-                setup_genpack_init_module();
-                std::string red_begin = "\033[31m";
-                std::string red_end = "\033[0m";
-                logging::warning(red_begin + "!!! Running without mock functions. This may cause data loss. !!!" + red_end);
-            }
-            return repl();
-        }
+        setup_genpack_init_module();
+        std::string red_begin = "\033[31m";
+        std::string red_end = "\033[0m";
+        return repl();
     }
     catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

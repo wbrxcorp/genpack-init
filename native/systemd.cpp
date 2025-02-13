@@ -6,12 +6,22 @@
 
 int enable_systemd_service(const std::string& name)
 {
-    logging::info(std::format("Enabling systemd service {}.", name));
-    return run_subprocess({"systemctl", "enable", name});
+    int rst = run_subprocess({"systemctl", "enable", name});
+    if (rst == 0) {
+        logging::info(std::format("Systemd service {} enabled.", name));
+    } else {   
+        logging::error(std::format("Failed to enable systemd service {}.", name));
+    }
+    return rst;
 }
 
 int disable_systemd_service(const std::string& name)
 {
-    logging::info(std::format("Disabling systemd service {}.", name));
-    return run_subprocess({"systemctl", "disable", name});
+    int rst = run_subprocess({"systemctl", "disable", name});
+    if (rst == 0) {
+        logging::info(std::format("Systemd service {} disabled.", name));
+    } else {   
+        logging::error(std::format("Failed to disable systemd service {}.", name));
+    }
+    return rst;
 }
