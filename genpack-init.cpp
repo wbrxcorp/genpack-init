@@ -15,6 +15,10 @@
 #include "module.h"
 #include "repl.h"
 
+#ifdef WITH_EXEC_GUARD
+#include "exec_guard.h"
+#endif
+
 using namespace pybind11::literals;
 
 auto load_inifile(const std::filesystem::path& path)
@@ -66,6 +70,14 @@ int run_as_init()
     if (debug) {
         logging::debug("Debug mode enabled");
     }
+
+#ifdef WITH_EXEC_GUARD
+    if (inifile.attr("getboolean")("_default", "exec_guard", "fallback"_a = true).cast<bool>()) {
+        if (!setup_exec_guard()) {
+            logging::warning("exec_guard: setup failed, continuing without exec protection");
+        }
+    }
+#endif
 
     setup_genpack_init_module();
 
