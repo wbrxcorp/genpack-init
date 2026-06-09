@@ -4,3 +4,5 @@ debug/
 *.pyc
 *.o
 *.bin
+vmlinux.h
+exec_guard.skel.h

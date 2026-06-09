@@ -5,6 +5,7 @@
 #include <bpf/bpf_core_read.h>
 
 #define EPERM 1
+#define PROT_EXEC 0x4
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 
 // Trusted squashfs device numbers
@@ -23,12 +24,8 @@ struct {
     __type(value, __s64);
 } ovl_config SEC(".maps");
 
-SEC("lsm/bprm_check_security")
-int BPF_PROG(exec_guard_check, struct linux_binprm *bprm, int ret)
+static __always_inline int check_file(struct file *file)
 {
-    if (ret) return ret;
-
-    struct file *file = BPF_CORE_READ(bprm, file);
     if (!file) return 0;
 
     struct inode *inode = BPF_CORE_READ(file, f_inode);
@@ -49,6 +46,22 @@ int BPF_PROG(exec_guard_check, struct linux_binprm *bprm, int ret)
     __u64 dev = (__u64)BPF_CORE_READ(sb, s_dev);
     __u8 *found = bpf_map_lookup_elem(&trusted_devs, &dev);
     return found ? 0 : -EPERM;
+}
+
+SEC("lsm/bprm_check_security")
+int BPF_PROG(exec_guard_check, struct linux_binprm *bprm, int ret)
+{
+    if (ret) return ret;
+    return check_file(BPF_CORE_READ(bprm, file));
+}
+
+SEC("lsm/mmap_file")
+int BPF_PROG(mmap_guard, struct file *file, unsigned long reqprot,
+             unsigned long prot, unsigned long flags, int ret)
+{
+    if (ret) return ret;
+    if (!(prot & PROT_EXEC)) return 0;
+    return check_file(file);
 }
 
 char LICENSE[] SEC("license") = "GPL";
