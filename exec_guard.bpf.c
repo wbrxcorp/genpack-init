@@ -8,21 +8,23 @@
 #define PROT_EXEC 0x4
 #define OVERLAYFS_SUPER_MAGIC 0x794c7630
 
-// Trusted squashfs device numbers
+// Minimal declaration for CO-RE access; libbpf resolves actual offsets
+// from /sys/kernel/btf/overlay at load time.
+struct ovl_inode {
+    union { void *cache; const char *redirect; };
+    const char *lowerdata_redirect;
+    __u64 version;
+    unsigned long flags;
+    struct inode vfs_inode;
+    struct dentry *__upperdentry;
+} __attribute__((preserve_access_index));
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 16);
     __type(key, __u64);
     __type(value, __u8);
 } trusted_devs SEC(".maps");
-
-// [0]: byte offset of __upperdentry from &ovl_inode.vfs_inode, or -1 if unknown
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 1);
-    __type(key, __u32);
-    __type(value, __s64);
-} ovl_config SEC(".maps");
 
 static __always_inline int check_file(struct file *file)
 {
@@ -33,13 +35,11 @@ static __always_inline int check_file(struct file *file)
     unsigned long magic = BPF_CORE_READ(sb, s_magic);
 
     if (magic == OVERLAYFS_SUPER_MAGIC) {
-        __u32 key = 0;
-        __s64 *off = bpf_map_lookup_elem(&ovl_config, &key);
-        // Degraded mode: offset unknown, allow to avoid breaking the system
-        if (!off || *off < 0 || *off > 65536) return 0;
-
-        struct dentry *upper = NULL;
-        bpf_probe_read_kernel(&upper, sizeof(upper), (char *)inode + *off);
+        // container_of: __builtin_offsetof with preserve_access_index generates
+        // a CO-RE relocation resolved against overlay module BTF at load time.
+        struct ovl_inode *oi = (struct ovl_inode *)((char *)inode
+            - __builtin_offsetof(struct ovl_inode, vfs_inode));
+        struct dentry *upper = BPF_CORE_READ(oi, __upperdentry);
         return upper ? -EPERM : 0;
     }
 
