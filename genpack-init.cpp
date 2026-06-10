@@ -1,4 +1,5 @@
 #include <sys/reboot.h>
+#include <sys/mount.h>
 #include <unistd.h>
 
 #include <iostream>
@@ -75,6 +76,12 @@ int run_as_init()
     if (inifile.attr("getboolean")("_default", "exec_guard", "fallback"_a = true).cast<bool>()) {
         if (!setup_exec_guard()) {
             logging::warning("exec_guard: setup failed, continuing without exec protection");
+        }
+        if (mount("/usr", "/usr", nullptr, MS_BIND, nullptr) == 0 &&
+            mount("/usr", "/usr", nullptr, MS_BIND | MS_REMOUNT | MS_RDONLY, nullptr) == 0) {
+            logging::info("exec_guard: /usr mounted read-only");
+        } else {
+            logging::warning("exec_guard: failed to mount /usr read-only");
         }
     }
 #endif
