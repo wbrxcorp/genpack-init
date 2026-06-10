@@ -1,4 +1,5 @@
 #include <sys/stat.h>
+#include <sys/mount.h>
 #include <cerrno>
 #include <cstring>
 #include <cstdint>
@@ -37,6 +38,18 @@ bool setup_exec_guard(const char* lower_path)
         exec_guard_bpf__destroy(skel);
         skel = nullptr;
         return false;
+    }
+
+    // Pin links to BPF filesystem so they survive execl(systemd).
+    // Without pinning, all BPF link fds close on exec and the programs are released.
+    // /sys/fs/bpf is not yet mounted at this point (systemd does it later), so mount it ourselves.
+    if (mount("none", "/sys/fs/bpf", "bpf", 0, "") != 0 && errno != EBUSY) {
+        logging::warning(std::format("exec_guard: failed to mount bpf fs: {}", strerror(errno)));
+    }
+    mkdir("/sys/fs/bpf/exec_guard", 0700);
+    if (bpf_link__pin(skel->links.exec_guard_check, "/sys/fs/bpf/exec_guard/exec_check") ||
+        bpf_link__pin(skel->links.mmap_guard,        "/sys/fs/bpf/exec_guard/mmap_guard")) {
+        logging::warning(std::format("exec_guard: failed to pin BPF links ({}); programs will be inactive after exec", strerror(errno)));
     }
 
     logging::info(std::format("exec_guard: active. trusted dev=0x{:x}", dev));
