@@ -52,6 +52,14 @@ SEC("lsm/bprm_check_security")
 int BPF_PROG(exec_guard_check, struct linux_binprm *bprm, int ret)
 {
     if (ret) return ret;
+
+    // Only restrict ELF binaries; allow scripts (shebang, binfmt_misc, etc.)
+    char magic[4] = {};
+    bpf_core_read(magic, sizeof(magic), &bprm->buf);
+    if (!(magic[0] == 0x7f && magic[1] == 'E' &&
+          magic[2] == 'L' && magic[3] == 'F'))
+        return 0;
+
     return check_file(BPF_CORE_READ(bprm, file));
 }
 
