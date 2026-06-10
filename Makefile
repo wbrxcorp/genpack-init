@@ -39,8 +39,10 @@ tests: $(patsubst %.cpp,debug/%.bin,$(DEBUG_SRCS))
 debug/%.bin: %.cpp $(DEBUG_OBJS) $(wildcard *.h) $(wildcard native/*.h)
 	g++ -std=c++23 -g -o $@ $< -DTEST $(INCLUDES) $(LIBS) $(filter-out $(patsubst debug/%.bin,debug/%.o,$@),$(DEBUG_OBJS))
 
+VMLINUX_BTF := $(firstword $(wildcard /usr/src/linux/vmlinux) /sys/kernel/btf/vmlinux)
+
 vmlinux.h:
-	bpftool btf dump file /sys/kernel/btf/vmlinux format c > $@
+	bpftool btf dump file $(VMLINUX_BTF) format c > $@
 
 exec_guard.bpf.o: exec_guard.bpf.c vmlinux.h
 	clang -O2 -g -target bpf -D__TARGET_ARCH_$(ARCH) -c -o $@ $<
